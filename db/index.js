@@ -100,16 +100,114 @@ async function createPost({
       VALUES ($1, $2, $3)
       RETURNING *;
     `, [authorId, title, content]);
-
+    console.log("post created")
     const tagList = await createTags(tags);
-
+    console.log("tags created")
     await addTagsToPost(post.id, tagList);
-
+    console.log("tags added to post")
     return getPostById(post.id); 
   } catch (error) {
     throw error;
   }
 }
+
+async function addTagsToPost(postId, tagList) {
+  try {
+    const createPostTagPromises = tagList.map(tag => createPostTag(postId, tag.id));
+
+    await Promise.all(createPostTagPromises);
+
+    return await getPostById(postId);
+  } catch (error) {
+    throw error;
+  }
+}
+
+async function createPostTag(postId, tagId) {
+  try {
+    await client.query(`
+      INSERT INTO post_tags("postId", "tagId")
+      VALUES ($1, $2)
+      ON CONFLICT ("postId", "tagId") DO NOTHING;
+    `, [postId, tagId]);
+  } catch (error) {
+    throw error;
+  }
+}
+
+async function getPostById(postId) {
+  try {
+    const { rows: [post] } = await client.query(`
+      SELECT *
+      FROM posts
+      WHERE id=$1;
+    `, [postId]);
+
+    const { rows: tags } = await client.query(`
+      SELECT tags.*
+      FROM tags
+      JOIN post_tags ON tags.id=post_tags."tagId"
+      WHERE post_tags."postId"=$1;
+    `, [postId]);
+
+    const { rows: [author] } = await client.query(`
+      SELECT id, username, name, location
+      FROM users
+      WHERE id=$1;
+    `, [post.authorId]);
+
+    post.tags = tags;
+    post.author = author;
+
+    delete post.authorId;
+
+    return post;
+  } catch (error) {
+    throw error;
+  }
+}
+
+
+async function createTags(tagList) {
+  if (tagList.length === 0) { 
+    return; 
+  }
+
+  const insertValues = tagList.map((_, index) => `$${index + 1}`).join('), (');
+  const selectValues = tagList.map((_, index) => `$${index + 1}`).join(', ');
+  const query= `
+    INSERT INTO tags (name)
+    VALUES (${insertValues})
+    ON CONFLICT (name) DO NOTHING;
+    `
+    
+  
+    console.log(query)
+  try {
+    // Insert the tags, doing nothing on conflict
+    await client.query(
+      `
+      INSERT INTO tags (name)
+      VALUES (${insertValues})
+      ON CONFLICT (name) DO NOTHING;
+      `,
+      tagList
+    );
+
+    // Select all tags where the name is in our taglist
+    const { rows: selectedTags } = await client.query(
+      `
+      SELECT * FROM tags
+      WHERE name IN (${selectValues});
+      `,
+      tagList
+    );
+
+    return selectedTags;
+  } catch (error) {
+    throw error;
+  } }
+
 
 async function updatePost(postId, fields = {}) {
   const { tags } = fields; // Read off the tags and remove the field
@@ -206,4 +304,5 @@ module.exports = {
   updatePost,
   getAllPosts,
   getPostsByUser
+  
 }

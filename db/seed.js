@@ -7,7 +7,8 @@ const {
   createPost,
   updatePost,
   getAllPosts,
-  getPostsByUser
+  getPostsByUser,
+  createTags,
 } = require('./index');
 
 async function dropTables() {
@@ -16,8 +17,12 @@ async function dropTables() {
 
     // have to make sure to drop in correct order
     await client.query(`
+      DROP TABLE IF EXISTS post_tags;
       DROP TABLE IF EXISTS posts;
       DROP TABLE IF EXISTS users;
+      DROP TABLE IF EXISTS tags;
+      
+      
     `);
 
     console.log("Finished dropping tables!");
@@ -43,7 +48,7 @@ async function createTables() {
 
       CREATE TABLE posts (
         id SERIAL PRIMARY KEY,
-        authorId INTEGER REFERENCES users (id),
+        "authorId" INTEGER REFERENCES users (id),
         title VARCHAR(255) NOT NULL,
         content TEXT NOT NULL,
         active BOOLEAN DEFAULT true
@@ -129,39 +134,6 @@ async function createInitialPosts() {
     throw error;
   }
 }
-
-async function createTags(tagList) {
-  if (tagList.length === 0) { 
-    return; 
-  }
-
-  const insertValues = tagList.map((_, index) => `$${index + 1}`).join('), (');
-  const selectValues = tagList.map((_, index) => `$${index + 1}`).join(', ');
-
-  try {
-    // Insert the tags, doing nothing on conflict
-    await client.query(
-      `
-      INSERT INTO tags (name)
-      VALUES ${insertValues}
-      ON CONFLICT (name) DO NOTHING;
-      `,
-      tagList
-    );
-
-    // Select all tags where the name is in our taglist
-    const { rows: selectedTags } = await client.query(
-      `
-      SELECT * FROM tags
-      WHERE name IN (${selectValues});
-      `,
-      tagList
-    );
-
-    return selectedTags;
-  } catch (error) {
-    throw error;
-  } }
 
 
   async function createPostTag(postId, tagId) {
