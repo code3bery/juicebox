@@ -8,7 +8,11 @@ const {
   updatePost,
   getAllPosts,
   getPostsByUser,
+  getPostById,
+  getPostsByTagName,
   createTags,
+  createPostTag,
+  addTagsToPost
 } = require('./index');
 
 async function dropTables() {
@@ -136,79 +140,79 @@ async function createInitialPosts() {
 }
 
 
-  async function createPostTag(postId, tagId) {
-    try {
-      await client.query(`
-        INSERT INTO post_tags("postId", "tagId")
-        VALUES ($1, $2)
-        ON CONFLICT ("postId", "tagId") DO NOTHING;
-      `, [postId, tagId]);
-    } catch (error) {
-      throw error;
-    }
-  }
+  // async function createPostTag(postId, tagId) {
+  //   try {
+  //     await client.query(`
+  //       INSERT INTO post_tags("postId", "tagId")
+  //       VALUES ($1, $2)
+  //       ON CONFLICT ("postId", "tagId") DO NOTHING;
+  //     `, [postId, tagId]);
+  //   } catch (error) {
+  //     throw error;
+  //   }
+  // }
   
-  async function addTagsToPost(postId, tagList) {
-    try {
-      const createPostTagPromises = tagList.map(tag => createPostTag(postId, tag.id));
+  // async function addTagsToPost(postId, tagList) {
+  //   try {
+  //     const createPostTagPromises = tagList.map(tag => createPostTag(postId, tag.id));
   
-      await Promise.all(createPostTagPromises);
+  //     await Promise.all(createPostTagPromises);
   
-      return await getPostById(postId);
-    } catch (error) {
-      throw error;
-    }
-  }
+  //     return await getPostById(postId);
+  //   } catch (error) {
+  //     throw error;
+  //   }
+  // }
   
-  async function getPostById(postId) {
-    try {
-      const { rows: [post] } = await client.query(`
-        SELECT *
-        FROM posts
-        WHERE id=$1;
-      `, [postId]);
+  // async function getPostById(postId) {
+  //   try {
+  //     const { rows: [post] } = await client.query(`
+  //       SELECT *
+  //       FROM posts
+  //       WHERE id=$1;
+  //     `, [postId]);
   
-      const { rows: tags } = await client.query(`
-        SELECT tags.*
-        FROM tags
-        JOIN post_tags ON tags.id=post_tags."tagId"
-        WHERE post_tags."postId"=$1;
-      `, [postId]);
+  //     const { rows: tags } = await client.query(`
+  //       SELECT tags.*
+  //       FROM tags
+  //       JOIN post_tags ON tags.id=post_tags."tagId"
+  //       WHERE post_tags."postId"=$1;
+  //     `, [postId]);
   
-      const { rows: [author] } = await client.query(`
-        SELECT id, username, name, location
-        FROM users
-        WHERE id=$1;
-      `, [post.authorId]);
+  //     const { rows: [author] } = await client.query(`
+  //       SELECT id, username, name, location
+  //       FROM users
+  //       WHERE id=$1;
+  //     `, [post.authorId]);
   
-      post.tags = tags;
-      post.author = author;
+  //     post.tags = tags;
+  //     post.author = author;
   
-      delete post.authorId;
+  //     delete post.authorId;
   
-      return post;
-    } catch (error) {
-      throw error;
-    }
-  }
+  //     return post;
+  //   } catch (error) {
+  //     throw error;
+  //   }
+  // }
 
-  async function getPostsByTagName(tagName) {
-    try {
-      const { rows: postIds } = await client.query(`
-        SELECT posts.id
-        FROM posts
-        JOIN post_tags ON posts.id = post_tags."postId"
-        JOIN tags ON tags.id = post_tags."tagId"
-        WHERE tags.name = $1;
-      `, [tagName]);
+  // async function getPostsByTagName(tagName) {
+  //   try {
+  //     const { rows: postIds } = await client.query(`
+  //       SELECT posts.id
+  //       FROM posts
+  //       JOIN post_tags ON posts.id = post_tags."postId"
+  //       JOIN tags ON tags.id = post_tags."tagId"
+  //       WHERE tags.name = $1;
+  //     `, [tagName]);
   
-      return await Promise.all(postIds.map(
-        post => getPostById(post.id)
-      ));
-    } catch (error) {
-      throw error;
-    }
-  }
+  //     return await Promise.all(postIds.map(
+  //       post => getPostById(post.id)
+  //     ));
+  //   } catch (error) {
+  //     throw error;
+  //   }
+  // }
   
   
   async function createInitialTags() {
@@ -235,20 +239,6 @@ async function createInitialPosts() {
     }
   }
   
-  async function rebuildDB() {
-    try {
-      await client.connect();
-  
-      await dropTables();
-      await createTables();
-      await createInitialUsers();
-      await createInitialPosts();
-      await createInitialTags();
-    } catch (error) {
-      console.log("Error during rebuildDB");
-      throw error;
-    }
-  }
   
 
   async function rebuildDB() {
@@ -259,6 +249,7 @@ async function createInitialPosts() {
       await createTables();
       await createInitialUsers();
       await createInitialPosts();
+      await createInitialTags(); // Added this line
     } catch (error) {
       console.log("Error during rebuildDB");
       throw error;
