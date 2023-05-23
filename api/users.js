@@ -1,6 +1,5 @@
 // api/users.js
 const express = require('express');
-const express = require('express');
 const usersRouter = express.Router();
 //Require JWT Library
 const jwt = require('jsonwebtoken');
